@@ -16,7 +16,7 @@ namespace VeraNet
     using System.Net;
     using System.Reflection;
     using System.Threading;
-    using System.Web.Script.Serialization;
+    using System.Text.Json;
     using VeraNet.Objects;
 
     /// <summary>
@@ -30,7 +30,6 @@ namespace VeraNet
         private const int DEFAULT_TIMEOUT_SEC = 10;
 
         private HttpWebRequest _httpRequest = null;
-        private JavaScriptSerializer _jsonSerializer = null;
         private Thread _thrListener = null;
         private Dictionary<int, Type> _deviceTypes = null;
 
@@ -204,7 +203,6 @@ namespace VeraNet
         /// <param name="startListener">if set to <c>true</c> to listen the changes on Vera device.</param>
         public VeraController(VeraConnectionInfo connectionInfo, bool startListener = false)
         {
-            this._jsonSerializer = new JavaScriptSerializer();
             this.Sections = new ObservableCollection<Section>();
             this.Rooms = new ObservableCollection<Room>();
             this.Categories = new ObservableCollection<Category>();
@@ -421,7 +419,7 @@ namespace VeraNet
             }
 
             // Deserialize JSON
-            Dictionary<string, object> jsonResponse = this._jsonSerializer.DeserializeObject(strResponse) as Dictionary<string, object>;
+            Dictionary<string, object> jsonResponse = DeserializeJson(strResponse);
 
             // Clearing datas
             if (this.CurrentLoadTime == 0)
@@ -563,6 +561,73 @@ namespace VeraNet
         {
             return string.Format("{0}/data_request?id=lu_sdata&loadtime={1}&dataversion={2}&minimumdelay={3}&timeout={4}",
                 this.ConnectionInfo, this.CurrentLoadTime, this.CurrentDataVersion, this.RequestMinimalDelay.TotalMilliseconds, this.RequestTimeout.TotalSeconds);
+        }
+        public static Dictionary<string, object> DeserializeJson(string jsonString)
+        {
+            using (JsonDocument document = JsonDocument.Parse(jsonString))
+            {
+                // Access the root element
+                JsonElement root = document.RootElement;
+
+                // Create a dictionary to hold the deserialized JSON
+                Dictionary<string, object> dictionary = new Dictionary<string, object>();
+
+                // Iterate over each property of the JSON object
+                foreach (JsonProperty property in root.EnumerateObject())
+                {
+                    // Convert the JSON element value to its corresponding native type
+                    object value = GetValue(property.Value);
+
+                    // Add the property name and its native type value to the dictionary
+                    dictionary.Add(property.Name, value);
+                }
+
+                return dictionary;
+            }
+        }
+
+        // Helper method to convert JSON values to native types
+        public static object GetValue(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out int intValue))
+                    {
+                        return intValue;
+                    }
+                    else if (element.TryGetDouble(out double doubleValue))
+                    {
+                        return doubleValue;
+                    }
+                    else if (element.TryGetInt64(out long longValue))
+                    {
+                        return longValue;
+                    }
+                    else if (element.TryGetDecimal(out decimal decimalValue))
+                    {
+                        return decimalValue;
+                    }
+                    break;
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.String:
+                    return element.GetString();
+                case JsonValueKind.Array:
+                    List<object> array = new List<object>();
+                    foreach (JsonElement item in element.EnumerateArray())
+                    {
+                        array.Add(GetValue(item));
+                    }
+                    return array.ToArray();
+                case JsonValueKind.Object:
+                    return DeserializeJson(element.GetRawText());
+            }
+
+            // Fallback to string representation if value kind is not recognized
+            return element.ToString();
         }
     }
 }

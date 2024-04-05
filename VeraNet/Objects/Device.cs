@@ -12,7 +12,7 @@ namespace VeraNet.Objects
     using System.Linq;
     using System.Text.RegularExpressions;
     using System.Threading;
-    using System.Web.Script.Serialization;
+    using System.Text.Json;
 
     /// <summary>
     /// Represent a Vera's device.
@@ -161,11 +161,11 @@ namespace VeraNet.Objects
                     {
                         Thread.Sleep(1000);
                     }
-                    jsonResponse = new JavaScriptSerializer().DeserializeObject(this.DataRequest(DataRequestAction.JobStatus, new Dictionary<string, string>()
+                    jsonResponse = JsonSerializer.Deserialize<Dictionary<string, object>>(this.DataRequest(DataRequestAction.JobStatus, new Dictionary<string, string>()
                     {
                         {  "job",  regex.Groups[1].Value },
                         {  "plugin", "zwave" }
-                    })) as Dictionary<string, object>;
+                    }));
                 }
                 while ((jsonResponse == null || !jsonResponse.ContainsKey("status") || jsonResponse["status"].ToString() == "0" || jsonResponse["status"].ToString() == "1" || jsonResponse["status"].ToString() == "7") && limit < 5);
                 return (jsonResponse != null && jsonResponse.ContainsKey("status") && jsonResponse["status"].ToString() == "4");
