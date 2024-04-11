@@ -28,7 +28,7 @@ public class VeraConnectionInfoCloudUi7 : VeraConnectionInfo
         this.HttpClient.BaseAddress = new Uri(this.GetUrl());
     }
     
-    protected override string GetUrl()
+    protected sealed override string GetUrl()
     {
         return $"https://{this.ServerRelay}/relay/relay/relay/device/{this.DeviceId}/session/{this.RelaySession}/port_3480/";
     }

@@ -51,9 +51,9 @@ public class VeraConnectionInfoCloudOld : VeraConnectionInfo
         this.HttpClient.BaseAddress = new Uri(this.GetUrl());
     }
     
-    protected override string GetUrl()
+    protected sealed override string GetUrl()
     {
-        return $"https://fwd2.mios.com/{this.RemoteUser}/{this.RemotePassword}/{this.RemoteSerial}";
+        return $"https://fwd2.mios.com/{this.RemoteUser}/{this.RemotePassword}/{this.RemoteSerial}/";
     }
 
 

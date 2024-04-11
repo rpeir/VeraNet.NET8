@@ -45,7 +45,7 @@ public class VeraConnectionInfoLocal : VeraConnectionInfo
 
     protected sealed override string GetUrl()
     {
-        return $"http://{this.LocalIp}:{this.LocalPort}";
+        return $"http://{this.LocalIp}:{this.LocalPort}/";
     }
     
 }

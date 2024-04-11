@@ -4,13 +4,15 @@
 // </copyright>
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
+
+// Documentation: https://wiki.mios.com/index.php/Luup_Device_Categories
 namespace VeraNet.Objects
 {
 
     /// <summary>
     /// Represent the Vera device's category
     /// </summary>
-    internal enum DeviceCategory
+    public enum DeviceCategory
     {
         Interface = 1,
         // "urn:upnp-org:serviceId:Dimming1"
