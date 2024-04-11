@@ -2,7 +2,7 @@
 // <copyright file="VeraController.cs" company="Sebastien.warin.Fr">
 //  Copyright 2012 - Sebastien.warin.fr
 // </copyright>
-// <author>Sebastien Warin</author>
+// <author>Sebastien Warin, Rodrigo Peireso</author>
 // -----------------------------------------------------------------------
 
 // Vera UI API documentation : http://wiki.micasaverde.com/index.php/UI_Simple
@@ -11,16 +11,16 @@ namespace VeraNet
     using System;
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
-    using System.IO;
     using System.Linq;
-    using System.Net;
+    using System.Net.Http;
+    using System.Threading.Tasks;
     using System.Reflection;
     using System.Threading;
     using System.Text.Json;
     using VeraNet.Objects;
 
     /// <summary>
-    /// Represent the Vera controller
+    /// Represent the Vera controller.
     /// </summary>
     /// <seealso cref="System.IDisposable" />
     public class VeraController : IDisposable
@@ -29,7 +29,9 @@ namespace VeraNet
         private const int DEFAULT_MINIMAL_DELAY_MS = 500;
         private const int DEFAULT_TIMEOUT_SEC = 10;
 
-        private HttpWebRequest _httpRequest = null;
+        private HttpClient _httpClient;
+        private CancellationTokenSource _cancellationTokenSource;
+        
         private Thread _thrListener = null;
         private Dictionary<int, Type> _deviceTypes = null;
 
@@ -210,6 +212,7 @@ namespace VeraNet
             this.Devices = new ObservableCollection<Device>();
             this.IsListening = false;
             this.ConnectionInfo = connectionInfo;
+            this._httpClient = connectionInfo.HttpClient;
             this.RequestMinimalDelay = TimeSpan.FromMilliseconds(DEFAULT_MINIMAL_DELAY_MS);
             this.RequestTimeout = TimeSpan.FromSeconds(DEFAULT_TIMEOUT_SEC);
             this.LoadDeviceTypes();
@@ -254,10 +257,6 @@ namespace VeraNet
                 this.IsListening = false;
                 try
                 {
-                    if (this._httpRequest != null)
-                    {
-                        this._httpRequest.Abort();
-                    }
                     this._thrListener.Abort();
                 }
                 catch { }
@@ -272,7 +271,7 @@ namespace VeraNet
         {
             try
             {
-                return this.GetWebResponse(this.ConnectionInfo.ToString() + "/data_request?id=lu_alive").Equals("OK");
+                return this.GetWebResponse("data_request?id=lu_alive").Equals("OK");
             }
             catch { }
             return false;
@@ -325,27 +324,35 @@ namespace VeraNet
 
         internal string GetWebResponse(string uri, bool throwException = false)
         {
+            var asyncTask = Task.Run(async () => await GetWebResponseAsync(uri, throwException));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+        
+        internal async Task<string> GetWebResponseAsync(string uri, bool throwException = false)
+        {
             try
             {
-                // Create the request
-                this._httpRequest = HttpWebRequest.Create(uri) as HttpWebRequest;
-                this._httpRequest.Timeout = (int)this.RequestTimeout.TotalMilliseconds - 1000;
+                // Send request and get response
+                HttpResponseMessage response = await _httpClient.GetAsync(uri);
+                response.EnsureSuccessStatusCode();
+                
                 // DateSent
-                if (this.DataSent != null)
+                if (DataSent != null)
                 {
-                    this.DataSent(this, new VeraDataSentEventArgs() { Length = this._httpRequest.ContentLength, Uri = uri });
+                    DataSent(this, new VeraDataSentEventArgs() { Length = response.Content.Headers.ContentLength ?? 0, Uri = uri });
                 }
-                // Get and read the response stream
-                string strResponse = new StreamReader(this._httpRequest.GetResponse().GetResponseStream()).ReadToEnd();
-                // Purge the request and return response
-                this._httpRequest = null;
+
+                // Read response content
+                var strResponse = await response.Content.ReadAsStringAsync();
+
                 return strResponse;
             }
             catch (Exception ex)
             {
-                if (throwException && (ex is WebException && ((WebException)ex).Status == WebExceptionStatus.Timeout) == false && this.IsListening)
+                if (throwException && ex is not TaskCanceledException && this.IsListening)
                 {
-                    throw ex;
+                    throw;
                 }
                 return string.Empty;
             }
@@ -387,7 +394,7 @@ namespace VeraNet
         /// <returns></returns>
         public VeraHouseMode RequestHouseMode()
         {
-            VeraHouseMode houseMode = (VeraHouseMode)Convert.ToInt32(this.GetWebResponse(this.ConnectionInfo.ToString() + "/data_request?id=variableget&Variable=Mode"));
+            VeraHouseMode houseMode = (VeraHouseMode)Convert.ToInt32(this.GetWebResponse("data_request?id=variableget&Variable=Mode"));
             if (houseMode != this.HouseMode)
             {
                 var eventArgs = new HouseModeChangedEventArgs { NewMode = houseMode, OldMode = this.HouseMode };
@@ -404,7 +411,7 @@ namespace VeraNet
         /// <returns></returns>
         public bool SetHouseMode(VeraHouseMode houseMode)
         {
-           return this.GetWebResponse(this.ConnectionInfo.ToString() + "/data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=SetHouseMode&Mode=" + ((int)houseMode).ToString()).Contains("<OK>OK</OK>");
+           return this.GetWebResponse( "data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=SetHouseMode&Mode=" + ((int)houseMode).ToString()).Contains("<OK>OK</OK>");
         }
 
         private void RequestVera()
@@ -557,12 +564,26 @@ namespace VeraNet
             }
         }
 
+        /// <summary>
+        /// Gets the SData request URI, to get multiple data from Vera.
+        /// </summary>
         private string GetRequestUri()
         {
-            return string.Format("{0}/data_request?id=lu_sdata&loadtime={1}&dataversion={2}&minimumdelay={3}&timeout={4}",
-                this.ConnectionInfo, this.CurrentLoadTime, this.CurrentDataVersion, this.RequestMinimalDelay.TotalMilliseconds, this.RequestTimeout.TotalSeconds);
+            return string.Format("data_request?id=lu_sdata&loadtime={0}&dataversion={1}&minimumdelay={2}&timeout={3}",
+                this.CurrentLoadTime, this.CurrentDataVersion, this.RequestMinimalDelay.TotalMilliseconds, this.RequestTimeout.TotalSeconds);
         }
-        public static Dictionary<string, object> DeserializeJson(string jsonString)
+        
+        /// <summary>
+        /// Helper method to deserialize Vera JSON responses.
+        /// This method was created to maintain the original code structure.
+        /// </summary>
+        /// <param name="jsonString">The JSON response stringified</param>
+        /// <returns>
+        /// A dictionary with the JSON structure.
+        /// The possible object values are the referenced in the <see cref="GetValue"/> method
+        /// </returns>
+        /// <author>Rodrigo Peireso</author>
+        private static Dictionary<string, object> DeserializeJson(string jsonString)
         {
             using (JsonDocument document = JsonDocument.Parse(jsonString))
             {
@@ -585,9 +606,15 @@ namespace VeraNet
                 return dictionary;
             }
         }
-
-        // Helper method to convert JSON values to native types
-        public static object GetValue(JsonElement element)
+        
+        /// <summary>
+        /// Helper method to convert JSON elements to native types.
+        /// It is used with the DeserializeJson method to recursively convert JSON elements to native types.
+        /// </summary>
+        /// <param name="element">The json element to be converted.</param>
+        /// <returns>Can return native types such as number (int, double, long, decimal), bool, string or array objects.</returns>
+        /// <author>Rodrigo Peireso</author>
+        private static object GetValue(JsonElement element)
         {
             switch (element.ValueKind)
             {

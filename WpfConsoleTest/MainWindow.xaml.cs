@@ -19,7 +19,7 @@ namespace WpfConsoleTest
         public MainWindow()
         {
             InitializeComponent();
-            this.controller = new VeraController(new VeraConnectionInfo("192.168.178.211"));
+            this.controller = new VeraController(new VeraConnectionInfoLocal("192.168.178.211"));
             this.controller.DataReceived += new EventHandler<VeraDataReceivedEventArgs>(controller_DataReceived);
             this.controller.DataSent += new EventHandler<VeraDataSentEventArgs>(controller_DataSent);
             this.controller.ErrorOccurred += controller_ErrorOccurred;
