@@ -12,10 +12,19 @@ namespace VeraNet;
 /// </summary>
 public class VeraConnectionInfoCloudUi7 : VeraConnectionInfo
 {
+    /// <summary>
+    /// The relay server used to connect to the Vera controller via the cloud.
+    /// </summary>
     public string ServerRelay { get; init; }
     
+    /// <summary>
+    /// The device id of the Vera controller.
+    /// </summary>
     public string DeviceId { get; init; }
     
+    /// <summary>
+    /// The relay session used to connect to the Vera controller via the cloud.
+    /// </summary>
     public string RelaySession { get; init; }
     
     public VeraConnectionInfoCloudUi7(string serverRelay, string deviceId, string relaySession)
