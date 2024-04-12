@@ -90,8 +90,24 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         AccountId = ExtractAccountId(IdentityToken);
         return IdentityToken;
     }
+    
+    /// <summary>
+    /// Hashes the password using SHA1, to be used in the authentication.
+    /// </summary>
+    /// <returns>Hashed password.</returns>
+    private string GetSha1Password()
+    {
+        var bytes = Encoding.UTF8.GetBytes(username + password + PasswordSeed);
+        var hash = SHA1.HashData(bytes);
+        return BitConverter.ToString(hash).Replace("-", "").ToLower();
+    }
 
-    private string ExtractAccountId(string identityToken)
+    /// <summary>
+    /// Extracts the account identifier from the identity token.
+    /// </summary>
+    /// <param name="identityToken"></param>
+    /// <returns></returns>
+    private static string ExtractAccountId(string identityToken)
     {
         var data = Convert.FromBase64String(identityToken);
         var json = JsonDocument.Parse(data);
@@ -123,7 +139,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     /// Get account devices (Hubs) from the Mios servers.
     /// </summary>
     /// <returns>Vera Account Devices of the Mios account.</returns>
-    private async Task<IEnumerable<VeraAccountDevice>> GetAccountDevicesAsync()
+    private async Task<List<VeraAccountDevice>> GetAccountDevicesAsync()
     {
         // create the request
         var url = $"https://{ServerAccount}/account/account/account/{AccountId}/devices";
@@ -160,28 +176,140 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
                 Blocked = device.GetProperty("Blocked").GetInt32() == 1 // the api returns 1 or 0 instead of true or false
             });
 
-        return devices;
+        return devices.ToList();
     }
 
     /// <summary>
-    /// Hashes the password using SHA1, to be used in the authentication.
+    /// Gets addition information of a Vera Account Device (Hub) from the Mios servers.
     /// </summary>
-    /// <returns>Hashed password.</returns>
-    private string GetSha1Password()
+    /// <param name="device">The vera account device (hub).</param>
+    /// <returns>Additional Info.</returns>
+    public async Task<VeraAccountDeviceInfo> GetAdditionalInfo(VeraAccountDevice device)
     {
-        var bytes = Encoding.UTF8.GetBytes(username + password + PasswordSeed);
-        var hash = SHA1.HashData(bytes);
-        return BitConverter.ToString(hash).Replace("-", "").ToLower();
+        // create the request
+        var url = $"https://{device.ServerDevice}/device/device/device/{device.DeviceId}";
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("MMSSession", SessionToken);
+        
+        // send the request
+        var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        
+        // parse the response
+        var content = await response.Content.ReadAsStringAsync();
+        var json = JsonDocument.Parse(content);
+        var root = json.RootElement;
+        
+        // get the info and parse it
+        var deviceInfo = new VeraAccountDeviceInfo
+        {
+            DeviceId = root.GetProperty("PK_Device").GetString(),
+            ServerRelay = root.GetProperty("Server_Relay").GetString(),
+            MacAddress = root.GetProperty("MacAddress").GetString(),
+            Using2G = root.GetProperty("Using_2G").GetInt32() == 1, // the api returns 1 or 0 instead of true or false
+            ExternalIp = root.GetProperty("ExternalIP").GetString(),
+            AccessiblePort = int.Parse(root.GetProperty("AccessiblePort").GetString()!),
+            InternalIp = root.GetProperty("InternalIP").GetString(),
+            AliveDate = DateTime.ParseExact(
+                root.GetProperty("AliveDate").GetString()!,
+                "yyyy-MM-dd HH:mm:ss", null),
+            FirmwareVersion = root.GetProperty("FirmwareVersion").GetString(),
+            PriorFirmwareVersion = root.GetProperty("PriorFirmwareVersion").GetString(),
+            UpgradeDate = DateTime.ParseExact(
+                root.GetProperty("UpgradeDate").GetString()!,
+                "yyyy-MM-dd HH:mm:ss", null),
+            Uptime = root.GetProperty("Uptime").GetString(),
+            ServerDevice = root.GetProperty("Server_Device").GetString(),
+            ServerEvent = root.GetProperty("Server_Event").GetString(),
+            ServerSupport = root.GetProperty("Server_Support").GetString(),
+            ServerStorage = root.GetProperty("Server_Storage").GetString(),
+            WifiSsid = root.GetProperty("WifiSsid").GetString(),
+            Timezone = root.GetProperty("Timezone").GetString(),
+            LocalPort = int.Parse(root.GetProperty("LocalPort").GetString()!),
+            ZWaveLocale = root.GetProperty("ZWaveLocale").GetString(),
+            ZWaveVersion = root.GetProperty("ZWaveVersion").GetString(),
+            BrandingFk = root.GetProperty("FK_Branding").GetString(),
+            Platform = root.GetProperty("Platform").GetString(),
+            UiLanguage = root.GetProperty("UILanguage").GetString(),
+            UiSkin = root.GetProperty("UISkin").GetString(),
+            HasWifi = root.GetProperty("HasWifi").GetString() == "1", // the api returns "1" or "0" instead of true or false
+            HasAlarmPanel = root.GetProperty("HasAlarmPanel").GetString() == "1", // the api returns "1" or "0" instead of true or false
+            UiVersion = int.Parse(root.GetProperty("UI").GetString()),
+            EngineStatus = root.GetProperty("EngineStatus").GetString(),
+            DistributionBuild = root.GetProperty("DistributionBuild").GetString(),
+            AccessPermissions = root.GetProperty("AccessPermissions").GetString(),
+            LinuxFirmware = root.GetProperty("LinuxFirmware").GetInt32()
+        };
+        
+        return deviceInfo;
     }
     
     /// <summary>
     /// Gets the devices (hubs) of the account.
     /// </summary>
-    public async Task<IEnumerable<VeraAccountDevice>> GetDevicesAsync()
+    /// <returns>A list of Vera Devices (hubs) associated with the account.</returns>
+    public async Task<List<VeraAccountDevice>> GetDevicesAsync()
     {
         await AuthenticateAsync();
         await GetSessionTokenAsync();
         return await GetAccountDevicesAsync();
+    }
+    
+    /// <inheritdoc cref="GetDevicesAsync"/>
+    public List<VeraAccountDevice> GetDevices()
+    {
+        var asyncTask = Task.Run(async () => await GetDevicesAsync());
+        // Wait for the task to complete and get the result
+        return asyncTask.Result;
+    }
+    
+    /// <summary>
+    /// Creates a Vera Controller instance from a Vera Account Device (Hub).
+    /// </summary>
+    /// <param name="device">The vera account device (hub).</param>
+    /// <returns>A Vera Controller instance</returns>
+    public async Task<VeraController> GetControllerAsync(VeraAccountDevice device)
+    {
+        await AuthenticateAsync();
+        await GetSessionTokenAsync();
+        var deviceInfo = await GetAdditionalInfo(device);
+        
+        // if is a device with UI version less than 7, use the old cloud connection
+        if (deviceInfo.UiVersion < 7)
+            return new VeraController(new VeraConnectionInfoCloudOld(username, password, int.Parse(device.DeviceId)));
+        
+        var relaySession = await GetRelayServerSessionTokenAsync(deviceInfo);
+        return new VeraController(new VeraConnectionInfoCloudUi7(deviceInfo.ServerRelay, deviceInfo.DeviceId, relaySession));
+    }
+    
+    /// <inheritdoc cref="GetControllerAsync"/>
+    public VeraController GetController(VeraAccountDevice device)
+    {
+        var asyncTask = Task.Run(async () => await GetControllerAsync(device));
+        // Wait for the task to complete and get the result
+        return asyncTask.Result;
+    }
+
+    /// <summary>
+    /// Gets the session token from the relay server of a vera device.
+    /// It is needed to request a new session for each server.
+    /// </summary>
+    /// <param name="deviceInfo">The vera device info.</param>
+    /// <returns>The Session Token for the Relay Server.</returns>
+    private async Task<string> GetRelayServerSessionTokenAsync(VeraAccountDeviceInfo deviceInfo)
+    {
+        // create the request
+        var url = $"https://{deviceInfo.ServerRelay}/info/session/token";
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("MMSAuth", IdentityToken);
+        request.Headers.Add("MMSAuthSig", IdentitySignature);
+        
+        // send the request
+        var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        
+        // parse the response
+        return await response.Content.ReadAsStringAsync();
     }
     
 }
