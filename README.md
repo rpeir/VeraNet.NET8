@@ -7,7 +7,7 @@ This is a .NET library for Vera device (*Mi Casa Verde Z-Wave box).
 Example :
 
 ```csharp
-using (VeraController vera = new VeraController(new VeraConnectionInfo("192.168.0.222"))) 
+using (VeraController vera = new VeraController(new VeraConnectionInfoLocal("192.168.0.222"))) 
 {
     vera.WaitForFullRequest();
     foreach (var device in vera.Devices)
@@ -21,16 +21,20 @@ You can connect to local or remote device :
 
 ```csharp
 // Local access
-var vera = new VeraController(new VeraConnectionInfo("192.168.0.222"));
+var vera = new VeraController(new VeraConnectionInfoLocal("192.168.0.222"));
 
 // Remote access
-var vera = new VeraController(new VeraConnectionInfo("username", "password", "S/N");
+var vera = new VeraController(new VeraConnectionInfoCloudOld("username", "password", "S/N");
+    
+// Remote access with new cloud
+var cloud = new VeraCloudConnection("username", "password");
+var vera = cloud.GetController(cloud.GetDevices().First());
 ```
 
 Start the listener when connected for receiving in real time all changes on your Vera (Scene or devices updates) :
 
 ```csharp
-var vera = new VeraController(new VeraConnectionInfo("192.168.0.222"));
+var vera = new VeraController(new VeraConnectionInfoLocal("192.168.0.222"));
 vera.StartListener();
 ```
 
