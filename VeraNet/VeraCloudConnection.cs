@@ -262,13 +262,14 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         // Wait for the task to complete and get the result
         return asyncTask.Result;
     }
-    
+
     /// <summary>
     /// Creates a Vera Controller instance from a Vera Account Device (Hub).
     /// </summary>
     /// <param name="device">The vera account device (hub).</param>
+    /// <param name="startListener">If the vera hub start listening when created.</param>
     /// <returns>A Vera Controller instance</returns>
-    public async Task<VeraController> GetControllerAsync(VeraAccountDevice device)
+    public async Task<VeraController> GetControllerAsync(VeraAccountDevice device, bool startListener = false)
     {
         await AuthenticateAsync();
         await GetSessionTokenAsync();
@@ -276,16 +277,16 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         
         // if is a device with UI version less than 7, use the old cloud connection
         if (deviceInfo.UiVersion < 7)
-            return new VeraController(new VeraConnectionInfoCloudOld(username, password, int.Parse(device.DeviceId)));
+            return new VeraController(new VeraConnectionInfoCloudOld(username, password, int.Parse(device.DeviceId)), startListener);
         
         var relaySession = await GetRelayServerSessionTokenAsync(deviceInfo);
-        return new VeraController(new VeraConnectionInfoCloudUi7(deviceInfo.ServerRelay, deviceInfo.DeviceId, relaySession));
+        return new VeraController(new VeraConnectionInfoCloudUi7(deviceInfo.ServerRelay, deviceInfo.DeviceId, relaySession), startListener);
     }
     
     /// <inheritdoc cref="GetControllerAsync"/>
-    public VeraController GetController(VeraAccountDevice device)
+    public VeraController GetController(VeraAccountDevice device, bool startListener = false)
     {
-        var asyncTask = Task.Run(async () => await GetControllerAsync(device));
+        var asyncTask = Task.Run(async () => await GetControllerAsync(device, startListener));
         // Wait for the task to complete and get the result
         return asyncTask.Result;
     }

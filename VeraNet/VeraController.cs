@@ -31,7 +31,7 @@ namespace VeraNet
 
         private HttpClient _httpClient;
         private CancellationTokenSource _cancellationTokenSource;
-        
+
         private Thread _thrListener = null;
         private Dictionary<int, Type> _deviceTypes = null;
 
@@ -39,22 +39,27 @@ namespace VeraNet
         /// Occurs when data is sent to the Vera.
         /// </summary>
         public event EventHandler<VeraDataSentEventArgs> DataSent;
+
         /// <summary>
         /// Occurs when data is received from the Vera.
         /// </summary>
         public event EventHandler<VeraDataReceivedEventArgs> DataReceived;
+
         /// <summary>
         /// Occurs when error occurred.
         /// </summary>
         public event EventHandler<VeraErrorOccurredEventArgs> ErrorOccurred;
+
         /// <summary>
         /// Occurs when Z-Wave device is updated.
         /// </summary>
         public event EventHandler<DeviceUpdatedEventArgs> DeviceUpdated;
+
         /// <summary>
         /// Occurs when scene is updated.
         /// </summary>
         public event EventHandler<SceneUpdatedEventArgs> SceneUpdated;
+
         /// <summary>
         /// Occurs when the house mode is changed.
         /// </summary>
@@ -67,6 +72,7 @@ namespace VeraNet
         /// <c>true</c> if this controller is listening for changes; otherwise, <c>false</c>.
         /// </value>
         public bool IsListening { get; private set; }
+
         /// <summary>
         /// Gets or sets the connection information.
         /// </summary>
@@ -74,6 +80,7 @@ namespace VeraNet
         /// The connection information.
         /// </value>
         public VeraConnectionInfo ConnectionInfo { get; set; }
+
         /// <summary>
         /// Gets or sets the request minimal delay.
         /// </summary>
@@ -81,6 +88,7 @@ namespace VeraNet
         /// The request minimal delay.
         /// </value>
         public TimeSpan RequestMinimalDelay { get; set; }
+
         /// <summary>
         /// Gets or sets the request timeout.
         /// </summary>
@@ -96,6 +104,7 @@ namespace VeraNet
         /// The Vera serial number.
         /// </value>
         public string SerialNumber { get; private set; }
+
         /// <summary>
         /// Gets or sets the Vera device version.
         /// </summary>
@@ -103,6 +112,7 @@ namespace VeraNet
         /// The Vera device version.
         /// </value>
         public string Version { get; private set; }
+
         /// <summary>
         /// Gets or sets the Vera model.
         /// </summary>
@@ -110,6 +120,7 @@ namespace VeraNet
         /// The Vera model.
         /// </value>
         public string Model { get; private set; }
+
         /// <summary>
         /// Gets or sets the temperature unit.
         /// </summary>
@@ -125,6 +136,7 @@ namespace VeraNet
         /// The last update.
         /// </value>
         public DateTime LastUpdate { get; private set; }
+
         /// <summary>
         /// Gets the current load time.
         /// </summary>
@@ -132,6 +144,7 @@ namespace VeraNet
         /// The current load time.
         /// </value>
         public long CurrentLoadTime { get; private set; }
+
         /// <summary>
         /// Gets the current data version.
         /// </summary>
@@ -139,6 +152,7 @@ namespace VeraNet
         /// The current data version.
         /// </value>
         public long CurrentDataVersion { get; private set; }
+
         /// <summary>
         /// Gets or sets the state of the current.
         /// </summary>
@@ -146,6 +160,7 @@ namespace VeraNet
         /// The state of the current.
         /// </value>
         public VeraState CurrentState { get; private set; }
+
         /// <summary>
         /// Gets or sets the current comment.
         /// </summary>
@@ -153,6 +168,7 @@ namespace VeraNet
         /// The current comment.
         /// </value>
         public string CurrentComment { get; private set; }
+
         /// <summary>
         /// Gets or sets the house's mode.
         /// </summary>
@@ -168,6 +184,7 @@ namespace VeraNet
         /// The sections.
         /// </value>
         public ObservableCollection<Section> Sections { get; private set; }
+
         /// <summary>
         /// Gets the rooms.
         /// </summary>
@@ -175,6 +192,7 @@ namespace VeraNet
         /// The rooms.
         /// </value>
         public ObservableCollection<Room> Rooms { get; private set; }
+
         /// <summary>
         /// Gets the categories.
         /// </summary>
@@ -182,6 +200,7 @@ namespace VeraNet
         /// The categories.
         /// </value>
         public ObservableCollection<Category> Categories { get; private set; }
+
         /// <summary>
         /// Gets the scenes.
         /// </summary>
@@ -189,6 +208,7 @@ namespace VeraNet
         /// The scenes.
         /// </value>
         public ObservableCollection<Scene> Scenes { get; private set; }
+
         /// <summary>
         /// Gets or sets the devices.
         /// </summary>
@@ -328,7 +348,7 @@ namespace VeraNet
             // Wait for the task to complete and get the result
             return asyncTask.Result;
         }
-        
+
         internal async Task<string> GetWebResponseAsync(string uri, bool throwException = false)
         {
             try
@@ -336,11 +356,13 @@ namespace VeraNet
                 // Send request and get response
                 HttpResponseMessage response = await _httpClient.GetAsync(uri);
                 response.EnsureSuccessStatusCode();
-                
+
                 // DateSent
                 if (DataSent != null)
                 {
-                    DataSent(this, new VeraDataSentEventArgs() { Length = response.Content.Headers.ContentLength ?? 0, Uri = uri });
+                    DataSent(this,
+                        new VeraDataSentEventArgs()
+                            { Length = response.Content.Headers.ContentLength ?? 0, Uri = uri });
                 }
 
                 // Read response content
@@ -354,6 +376,7 @@ namespace VeraNet
                 {
                     throw;
                 }
+
                 return string.Empty;
             }
         }
@@ -378,10 +401,12 @@ namespace VeraNet
                         {
                             this.ErrorOccurred(this, new VeraErrorOccurredEventArgs(ex));
                         }
+
                         if (errorCount < 16)
                         {
                             errorCount = errorCount == 0 ? 1 : errorCount * 2;
                         }
+
                         Thread.Sleep(2000 * errorCount);
                     }
                 }
@@ -394,13 +419,15 @@ namespace VeraNet
         /// <returns></returns>
         public VeraHouseMode RequestHouseMode()
         {
-            VeraHouseMode houseMode = (VeraHouseMode)Convert.ToInt32(this.GetWebResponse("data_request?id=variableget&Variable=Mode"));
+            VeraHouseMode houseMode =
+                (VeraHouseMode)Convert.ToInt32(this.GetWebResponse("data_request?id=variableget&Variable=Mode"));
             if (houseMode != this.HouseMode)
             {
                 var eventArgs = new HouseModeChangedEventArgs { NewMode = houseMode, OldMode = this.HouseMode };
                 this.HouseMode = houseMode;
                 this.HouseModeChanged?.Invoke(this, eventArgs);
             }
+
             return houseMode;
         }
 
@@ -411,7 +438,9 @@ namespace VeraNet
         /// <returns></returns>
         public bool SetHouseMode(VeraHouseMode houseMode)
         {
-           return this.GetWebResponse( "data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=SetHouseMode&Mode=" + ((int)houseMode).ToString()).Contains("<OK>OK</OK>");
+            return this.GetWebResponse(
+                "data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=SetHouseMode&Mode=" +
+                ((int)houseMode).ToString()).Contains("<OK>OK</OK>");
         }
 
         private void RequestVera()
@@ -464,22 +493,28 @@ namespace VeraNet
                 this.TemperatureUnit = jsonResponse["temperature"].ToString();
                 this.Version = jsonResponse["version"].ToString();
             }
+
             if (jsonResponse.ContainsKey("state"))
             {
-                this.CurrentState = StateUtils.GetStateFromCode(Convert.ToInt32(jsonResponse["state"]));;
+                this.CurrentState = StateUtils.GetStateFromCode(Convert.ToInt32(jsonResponse["state"]));
+                ;
             }
+
             if (jsonResponse.ContainsKey("comment"))
             {
                 this.CurrentComment = jsonResponse["comment"].ToString();
             }
+
             if (jsonResponse.ContainsKey("loadtime"))
             {
                 this.CurrentLoadTime = Convert.ToInt64(jsonResponse["loadtime"]);
             }
+
             if (jsonResponse.ContainsKey("dataversion"))
             {
                 this.CurrentDataVersion = Convert.ToInt64(jsonResponse["dataversion"]);
             }
+
             if (jsonResponse.ContainsKey("mode"))
             {
                 this.HouseMode = (VeraHouseMode)Convert.ToInt32(jsonResponse["mode"]);
@@ -501,7 +536,9 @@ namespace VeraNet
             }
         }
 
-        private void LoadVeraObjects<TObject>(Dictionary<string, object> jsonValues, string jsonKey, ObservableCollection<TObject> listToLoad, Func<Dictionary<string, object>, TObject> createObject = null) where TObject : VeraBaseObject, new()
+        private void LoadVeraObjects<TObject>(Dictionary<string, object> jsonValues, string jsonKey,
+            ObservableCollection<TObject> listToLoad, Func<Dictionary<string, object>, TObject> createObject = null)
+            where TObject : VeraBaseObject, new()
         {
             if (jsonValues.ContainsKey(jsonKey))
             {
@@ -518,6 +555,7 @@ namespace VeraNet
                         {
                             obj = createObject(item);
                         }
+
                         obj.VeraController = this;
                         obj.InitializeProperties(item);
                         listToLoad.Add(obj);
@@ -570,9 +608,10 @@ namespace VeraNet
         private string GetRequestUri()
         {
             return string.Format("data_request?id=lu_sdata&loadtime={0}&dataversion={1}&minimumdelay={2}&timeout={3}",
-                this.CurrentLoadTime, this.CurrentDataVersion, this.RequestMinimalDelay.TotalMilliseconds, this.RequestTimeout.TotalSeconds);
+                this.CurrentLoadTime, this.CurrentDataVersion, this.RequestMinimalDelay.TotalMilliseconds,
+                this.RequestTimeout.TotalSeconds);
         }
-        
+
         /// <summary>
         /// Helper method to deserialize Vera JSON responses.
         /// This method was created to maintain the original code structure.
@@ -606,7 +645,7 @@ namespace VeraNet
                 return dictionary;
             }
         }
-        
+
         /// <summary>
         /// Helper method to convert JSON elements to native types.
         /// It is used with the DeserializeJson method to recursively convert JSON elements to native types.
@@ -635,6 +674,7 @@ namespace VeraNet
                     {
                         return decimalValue;
                     }
+
                     break;
                 case JsonValueKind.True:
                     return true;
@@ -648,6 +688,7 @@ namespace VeraNet
                     {
                         array.Add(GetValue(item));
                     }
+
                     return array.ToArray();
                 case JsonValueKind.Object:
                     return DeserializeJson(element.GetRawText());
@@ -656,5 +697,72 @@ namespace VeraNet
             // Fallback to string representation if value kind is not recognized
             return element.ToString();
         }
+
+        ///<inheritdoc cref="CreateRoomAsync"/>
+        public Room CreateRoom(string name)
+        {
+            var asyncTask = Task.Run(async () => await CreateRoomAsync(name));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+
+        // TODO: Maybe change to throw exception instead of return null
+        /// <summary>
+        /// Creates a room in the Vera controller.
+        /// </summary>
+        /// <param name="name">The name of the room.</param>
+        /// <returns>Returns a <see cref="Room"/> instance if created successfully, <c>null</c> otherwise.</returns>
+        public async Task<Room> CreateRoomAsync(string name)
+        {
+            // validate the name
+            if (string.IsNullOrEmpty(name)) return null;
+
+            // create the request URI
+            var uri = $"data_request?id=room&action=create&name={name}";
+
+            // send the request
+            var response = await GetWebResponseAsync(uri);
+
+            // check if the room was created
+            if (!response.Contains("OK")) return null;
+            
+            // update the rooms list
+            RequestVera();
+            
+            // return the created room
+            return this.Rooms.FirstOrDefault(room => room.Name == name);
+        }
+
+        /// <summary>
+        /// Deletes a room from the Vera controller.
+        /// </summary>
+        /// <param name="room">The room to be deleted.</param>
+        /// <returns>Returns <c>True</c> if the room is sucessfully removed.</returns>
+        public async Task<bool> DeleteRoomAsync(Room room)
+        {
+            // create the request URI
+            var uri = $"data_request?id=room&action=delete&room={room.Id}";
+
+            // send the request
+            var response = await GetWebResponseAsync(uri);
+
+            // check if the object was deleted
+            var isDeleted = response.Contains("OK");
+            if (isDeleted)
+            {
+                this.Rooms.Remove(room);
+            }
+
+            return isDeleted;
+        }
+
+        ///<inheritdoc cref="DeleteRoomAsync"/>
+        public bool DeleteRoom(Room room)
+        {
+            var asyncTask = Task.Run(async () => await DeleteRoomAsync(room));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+        
     }
 }

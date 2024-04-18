@@ -5,6 +5,8 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 namespace VeraNet.Objects
 {
     using System;
@@ -90,5 +92,37 @@ namespace VeraNet.Objects
             base.UpdateProperties(values);
             this.UpdateProperty(values, "section", "SectionId", (v) => { this.SectionId = Convert.ToInt32(v); return true; });
         }
+
+        /// <summary>
+        /// Renames the name of this room.
+        /// </summary>
+        /// <param name="newName">The new room name.</param>
+        /// <returns>Returns <c>True</c> if changed successfully, <c>False</c> otherwise.</returns>
+        public async Task<bool> RenameAsync(string newName)
+        {
+            // Check if the new name is not empty
+            if (string.IsNullOrEmpty(newName)) return false;
+            
+            // Create the request
+            var uri = $"data_request?id=room&action=rename&room={this.Id}&name={newName}";
+            var response = await this.VeraController.GetWebResponseAsync(uri);
+            
+            // Check if the request was successful
+            var updated = response.Contains("OK");
+            if (!updated) return false;
+            
+            // Update the name
+            this.Name = newName;
+            return true;
+        }
+        
+        /// <inheritdoc cref="RenameAsync"/>
+        public bool Rename(string newName)
+        {
+            var asyncTask = Task.Run(async () => await this.RenameAsync(newName));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
     }
+    
 }
