@@ -256,6 +256,7 @@ namespace VeraNet
                     {
                         this.DemandFullRequest();
                     }
+
                     this.IsListening = true;
                     this._thrListener = new Thread(new ThreadStart(RequestVeraWorker));
                     this._thrListener.Start();
@@ -279,7 +280,9 @@ namespace VeraNet
                 {
                     this._thrListener.Abort();
                 }
-                catch { }
+                catch
+                {
+                }
             }
         }
 
@@ -293,7 +296,10 @@ namespace VeraNet
             {
                 return this.GetWebResponse("data_request?id=lu_alive").Equals("OK");
             }
-            catch { }
+            catch
+            {
+            }
+
             return false;
         }
 
@@ -338,7 +344,8 @@ namespace VeraNet
             }
             else
             {
-                throw new Exception("Unable to perform a full request when the listener is running. Call StopListener() before !");
+                throw new Exception(
+                    "Unable to perform a full request when the listener is running. Call StopListener() before !");
             }
         }
 
@@ -725,10 +732,10 @@ namespace VeraNet
 
             // check if the room was created
             if (!response.Contains("OK")) return null;
-            
+
             // update the rooms list
             RequestVera();
-            
+
             // return the created room
             return this.Rooms.FirstOrDefault(room => room.Name == name);
         }
@@ -764,5 +771,122 @@ namespace VeraNet
             return asyncTask.Result;
         }
         
+        /// <summary>
+        /// Deletes a device from the Vera controller.
+        /// </summary>
+        /// <param name="device">The device to be deleted.</param>
+        /// <returns>Returns <c>True</c> if the device is sucessfully removed.</returns>
+        public async Task<bool> DeleteDeviceAsync(Device device)
+        {
+            // create the request URI
+            var uri = $"data_request?id=device&action=delete&device={device.Id}";
+
+            // send the request
+            var response = await this.GetWebResponseAsync(uri);
+
+            // check if the object was deleted
+            var isDeleted = response.Contains("OK");
+            if (isDeleted)
+            {
+                this.Devices.Remove(device);
+            }
+
+            return isDeleted;
+        }
+
+        ///<inheritdoc cref="DeleteDeviceAsync"/>
+        public bool DeleteDevice(Device device)
+        {
+            var asyncTask = Task.Run(async () => await DeleteDeviceAsync(device));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+
+        /// <summary>
+        /// Puts the Vera controller in inclusion mode.
+        /// </summary>
+        /// <param name="kitDeviceId">
+        /// The Type of device to add.
+        /// This value can be obtained using <see cref="VeraCloudConnection"/> <c>GetKitDevices</c>
+        /// </param>
+        /// <param name="timeout">The number of seconds Vera will be in this mode.</param>
+        /// <param name="multiple">If Vera will exit this mode after a node is included.</param>
+        /// <param name="reload">If the the LuaUPnP engine will be restarted after Vera exits this mode.</param>
+        /// <param name="inclusionMode">Can be "FullPower" or anything else, in which case it will be low power.</param>
+        /// <param name="nodeType">
+        /// Type of the node. The valid values are:
+        /// <list type="bullet">
+        /// <item><description><c>1</c> - any</description></item>
+        /// <item><description><c>2</c> - controller</description></item>
+        /// <item><description><c>3</c> - slave</description></item>
+        /// <item><description><c>4</c> - existing</description></item>
+        /// <item><description><c>5</c> - stop</description></item>
+        /// </list>
+        /// </param>
+        /// <param name="serviceId">By default, the ZWave service.</param>
+        /// <returns></returns>
+        public async Task<bool> SetInclusionModeAsync(int kitDeviceId, int timeout = 0, bool multiple = true,
+            bool reload = false, string inclusionMode = "LowPower", int nodeType = 1,
+            string serviceId = "urn:micasaverde-com:serviceId:ZWaveNetwork1")
+        {
+            var uri = $"data_request?output_format=json&id=lu_action&action=AddNodes" +
+                      $"&InclusionMode={inclusionMode}&NodeType={nodeType}" +
+                      $"&Timeout={timeout}&Multiple={(multiple ? '1':'0')}&ControllerShift=0" +
+                      $"&Reload={(reload ? '1':'0')}&PK_KitDevice={kitDeviceId}" +
+                      $"&serviceId={serviceId}";
+            var response = await this.GetWebResponseAsync(uri);
+            return response.Contains("JobID");    
+        }
+    
+        ///<inheritdoc cref="SetInclusionModeAsync"/>
+        public bool SetInclusionMode(int kitDeviceId, int timeout = 0, bool multiple = true,
+            bool reload = false, string inclusionMode = "LowPower", int nodeType = 1,
+            string serviceId = "urn:micasaverde-com:serviceId:ZWaveNetwork1")
+        {
+            var asyncTask = Task.Run(async () => await SetInclusionModeAsync(
+                kitDeviceId, timeout, multiple, reload, inclusionMode, nodeType, serviceId));
+            return asyncTask.Result;
+        }
+        
+        /// <summary>
+        /// Puts the Vera controller in exclusion mode.
+        /// </summary>
+        /// <param name="timeout">The number of seconds Vera will be in this mode.</param>
+        /// <param name="multiple">If Vera will exit this mode after a node is included.</param>
+        /// <param name="reload">If the the LuaUPnP engine will be restarted after Vera exits this mode.</param>
+        /// <param name="inclusionMode">Can be "FullPower" or anything else, in which case it will be low power.</param>
+        /// <param name="nodeType">
+        /// Type of the node. The valid values are:
+        /// <list type="bullet">
+        /// <item><description><c>1</c> - any</description></item>
+        /// <item><description><c>2</c> - controller</description></item>
+        /// <item><description><c>3</c> - slave</description></item>
+        /// <item><description><c>4</c> - existing</description></item>
+        /// <item><description><c>5</c> - stop</description></item>
+        /// </list>
+        /// </param>
+        /// <param name="serviceId">By default, the ZWave service.</param>
+        /// <returns></returns>
+        public async Task<bool> SetExclusionModeAsync(int timeout = 0, bool multiple = true,
+            bool reload = false, string inclusionMode = "LowPower", int nodeType = 1,
+            string serviceId = "urn:micasaverde-com:serviceId:ZWaveDevice1")
+        {
+            var uri = $"data_request?&output_format=json&id=lu_action&action=AddNodes" +
+                      $"&InclusionMode={inclusionMode}&NodeType={nodeType}" +
+                      $"&Timeout={timeout}&Multiple={(multiple ? '1':'0')}&ControllerShift=0" +
+                      $"&Reload={(reload ? '1':'0')}&serviceId={serviceId}";
+            var response = await this.GetWebResponseAsync(uri);
+            return response.Contains("OK");    
+        }
+    
+        ///<inheritdoc cref="SetExclusionModeAsync"/>
+        public bool SetExclusionMode(int timeout = 0, bool multiple = true,
+            bool reload = false, string exclusionMode = "LowPower", int nodeType = 1,
+            string serviceId = "urn:micasaverde-com:serviceId:ZWaveDevice1")
+        {
+            var asyncTask = Task.Run(async () => await SetExclusionModeAsync(
+                timeout, multiple, reload, exclusionMode, nodeType, serviceId));
+            return asyncTask.Result;
+        }
     }
 }

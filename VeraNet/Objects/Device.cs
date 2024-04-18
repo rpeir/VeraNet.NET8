@@ -5,6 +5,8 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 namespace VeraNet.Objects
 {
     using System;
@@ -187,5 +189,64 @@ namespace VeraNet.Objects
             });
             return true;
         }
+        
+        /// <summary>
+        /// Renames the name of this device.
+        /// </summary>
+        /// <param name="newName">The new device name.</param>
+        /// <returns>Returns <c>True</c> if changed successfully, <c>False</c> otherwise.</returns>
+        public async Task<bool> RenameAsync(string newName)
+        {
+            // Check if the new name is not empty
+            if (string.IsNullOrEmpty(newName)) return false;
+            
+            // Create the request
+            var uri = $"data_request?id=device&action=rename&device={this.Id}&name={newName}";
+            var response = await this.VeraController.GetWebResponseAsync(uri);
+            
+            // Check if the request was successful
+            var updated = response.Contains("OK");
+            if (!updated) return false;
+            
+            // Update the name
+            this.Name = newName;
+            return true;
+        }
+        
+        /// <inheritdoc cref="RenameAsync"/>
+        public bool Rename(string newName)
+        {
+            var asyncTask = Task.Run(async () => await this.RenameAsync(newName));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+        
+        /// <summary>
+        /// Assigns the device to a new room.
+        /// </summary>
+        /// <param name="room">The new device room.</param>
+        /// <returns>Returns <c>True</c> if changed successfully, <c>False</c> otherwise.</returns>
+        public async Task<bool> AssignRoomAsync(Room room)
+        {
+            // Create the request
+            // The rename action is also used in the API to assign the device to a new room
+            var uri = $"data_request?id=device&action=rename&device={this.Id}&name={this.Name}&room={room.Id}";
+            var response = await this.VeraController.GetWebResponseAsync(uri);
+            
+            // Check if the request was successful
+            var updated = response.Contains("OK");
+            
+            // The room of this device is updated in the controller
+            return updated;
+        }
+        
+        /// <inheritdoc cref="AssignRoomAsync"/>
+        public bool AssignRoom(Room room)
+        {
+            var asyncTask = Task.Run(async () => await this.AssignRoomAsync(room));
+            // Wait for the task to complete and get the result
+            return asyncTask.Result;
+        }
+        
     }
 }

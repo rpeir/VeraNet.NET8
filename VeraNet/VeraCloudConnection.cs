@@ -312,5 +312,44 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         // parse the response
         return await response.Content.ReadAsStringAsync();
     }
+
+    /// <summary>
+    /// Get the available compatible devices with the Vera Controller Device.
+    /// </summary>
+    /// <param name="device">The Vera Controller.</param>
+    /// <returns>
+    /// A json that contains DeviceWizardCategory[] and KitDevice[].
+    /// The DeviceWizardCategory contains <c>PK_DeviceWizardCategory</c> and <c>LS_DeviceWizardCategory</c>.
+    /// The KitDevice always contains <c>PK_KitDevice</c>, <c>Name { text }</c>, <c>RequireMac</c>, <c>Protocol</c>, <c>NonSpecific</c>, <c>Invisible</c> and <c>Exclude</c>.
+    /// Each specific KitDevice could contain other properties.
+    /// </returns>
+    public async Task<JsonElement> GetKitDevicesAsync(VeraAccountDevice device)
+    {
+        // get the device info
+        var deviceInfo = await GetAdditionalInfo(device);
+        
+        // create the request
+        var url =
+            $"https://{deviceInfo.ServerRelay}/www/" +
+            $"{deviceInfo.FirmwareVersion}-{deviceInfo.UiLanguage}" +
+            $"/kit/KitDevice.json";
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        
+        // send the request
+        var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        
+        // parse the response
+        var content = await response.Content.ReadAsStringAsync();
+        var json = JsonDocument.Parse(content);
+        return json.RootElement;
+    }
     
+    /// <inheritdoc cref="GetKitDevicesAsync"/>
+    public JsonElement GetKitDevices(VeraAccountDevice device)
+    {
+        var asyncTask = Task.Run(async () => await GetKitDevicesAsync(device));
+        // Wait for the task to complete and get the result
+        return asyncTask.Result;
+    }
 }
