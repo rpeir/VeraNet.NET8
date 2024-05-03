@@ -6,6 +6,11 @@
 // -----------------------------------------------------------------------
 
 // Vera UI API documentation : http://wiki.micasaverde.com/index.php/UI_Simple
+
+using VeraNet.Objects.Scenes;
+using VeraNet.Objects.Scenes.Actions;
+using VeraTimer = VeraNet.Objects.Scenes.Timer;
+
 namespace VeraNet
 {
     using System;
@@ -887,6 +892,157 @@ namespace VeraNet
             var asyncTask = Task.Run(async () => await SetExclusionModeAsync(
                 timeout, multiple, reload, exclusionMode, nodeType, serviceId));
             return asyncTask.Result;
+        }
+
+        /// <summary>
+        /// Creates a scene in the Vera controller.
+        /// </summary>
+        /// <param name="name">Name of the scene.</param>
+        /// <param name="room">Room where the scene will be applied, <c>null</c> for all rooms.</param>
+        /// <param name="triggers">A list of triggers to start the scene.</param>
+        /// <param name="timers">A list of timers to start execution.</param>
+        /// <param name="actions">A list of actions that will be executed</param>
+        /// <returns></returns>
+        public async Task<bool> CreateSceneAsync(string name, Room? room, IEnumerable<Trigger> triggers, 
+            IEnumerable<VeraTimer> timers, Dictionary<int, Dictionary<string, List<DeviceCommand>>> actions)
+        {
+            var triggersJson =  triggers.Select(trigger => trigger.ToJson()).ToList();
+            var timersJson = timers.Select(timer => timer.ToJson()).ToList();
+            var actionsJson = ConvertDeviceActionsToJson(actions);
+
+            var scene = new Dictionary<string, object>
+            {
+                { "name", name },
+                { "groups", actionsJson },
+                { "triggers", triggersJson },
+                { "timers", timersJson },
+            };
+            if (room != null) scene.Add("room", room.Id);
+            
+            var json = JsonSerializer.Serialize(scene);
+            
+            var uri = $"data_request?id=scene" +
+                      $"&action=create" +
+                      $"&json={Uri.EscapeDataString(json)}";
+            var response = await this.GetWebResponseAsync(uri);
+            return response != "";
+        }
+        
+        /// <summary>
+        /// Converts the actions dictionary to a dictionary in the Vera Scene JSON format.
+        /// </summary>
+        /// <param name="actions">The actions dictionary to be converted.</param>
+        /// <returns>The list can be converted using <see cref="JsonSerializer"/> Serialize method.</returns>
+        private static List<Dictionary<string, object>> ConvertDeviceActionsToJson(
+            Dictionary<int, Dictionary<string, List<DeviceCommand>>> actions)
+        {
+            List<Dictionary<string, object>> actionsJson = [];
+            foreach (var delay in actions)
+            {
+                Dictionary<string, object> actionsDict = [];
+                List<object> groups = [];
+                actionsDict.Add("delay", delay.Key);
+                foreach (var device in delay.Value)
+                {
+                    foreach (var action in device.Value.Select(command => command.ToJson()))
+                    {
+                        action.Add("device", device.Key);
+                        groups.Add(action);
+                    }
+                }
+                actionsDict.Add("actions", groups);
+                actionsJson.Add(actionsDict);
+            }
+
+            return actionsJson;
+        }
+        
+        ///<inheritdoc cref="CreateSceneAsync"/>
+        public bool CreateScene(string name, Room? room, IEnumerable<Trigger> triggers, 
+            IEnumerable<VeraTimer> timers, Dictionary<int, Dictionary<string, List<DeviceCommand>>> actions)
+        {
+            var asyncTask = Task.Run(async () => await CreateSceneAsync(name, room, triggers, timers, actions));
+            return asyncTask.Result;
+        }
+        
+        /// <summary>
+        /// Gets the device type of a device.
+        /// </summary>
+        /// <param name="device">The device.</param>
+        /// <returns>The device type.</returns>
+        private async Task<string> GetDeviceTypeAsync(Device device)
+        {
+            var response = await GetWebResponseAsync("data_request?id=user_data");
+            var userData = JsonDocument.Parse(response);
+            
+            var deviceType = userData.RootElement.GetProperty("devices")
+                .EnumerateArray()
+                .FirstOrDefault(d => d.GetProperty("id").GetInt32() == device.Id)
+                .GetProperty("device_type").GetString();
+
+            return deviceType;
+        }
+        
+        ///<inheritdoc cref="GetDeviceTypeAsync"/>
+        private string GetDeviceType(Device device)
+        {
+            var task = Task.Run(async () => await GetDeviceTypeAsync(device));
+            // Wait for the task to complete and get the result
+            return task.Result;
+        }
+        
+        /// <summary>
+        /// Gets the available device controls for a device.
+        /// </summary>
+        /// <param name="device">The device to get the controls.</param>
+        /// <returns>A list of <see cref="DeviceControl"/> objects.</returns>
+        public async Task<List<DeviceControl>> GetDeviceControlsAsync(Device device)
+        {
+            var deviceType = await GetDeviceTypeAsync(device);
+            
+            var response = await GetWebResponseAsync($"data_request?id=static");
+            var json = JsonDocument.Parse(response);
+
+            // "static_data":[{"device_type": "type",
+            // "Tabs":[{
+            // "Control":[{"ControlType":"type",
+            // "states": [{"label":{"text":"text"}, "ControlCode": "text",
+            // "Command":{"Service":"text", "Action":"text", "Parameters": [{"Name":"text", "Value":"text"}]}]}]}]
+
+            var controls = json.RootElement.GetProperty("static_data")
+                .EnumerateArray()
+                .FirstOrDefault(d => d.GetProperty("device_type").GetString() == deviceType)
+                .GetProperty("Tabs")
+                .EnumerateArray()
+                .FirstOrDefault()
+                .GetProperty("Control")
+                .EnumerateArray()
+                .Select(control => new DeviceControl
+                {
+                    ControlType = control.GetProperty("ControlType").GetString(),
+                    States = control.GetProperty("states")
+                        .EnumerateArray()
+                        .Select(state => new DeviceControlState
+                        {
+                            Label = state.GetProperty("Label").GetProperty("text").GetString(),
+                            ControlCode = state.GetProperty("ControlCode").GetString(),
+                            Command = new DeviceCommand
+                            {
+                                ServiceId = state.GetProperty("Command").GetProperty("Service").GetString(),
+                                Action = state.GetProperty("Command").GetProperty("Action").GetString(),
+                                Parameters = state.GetProperty("Command").GetProperty("Parameters")
+                                    .EnumerateArray()
+                                    .ToDictionary(
+                                        parameter => parameter.GetProperty("Name").GetString(),
+                                        parameter => (object)parameter.GetProperty("Value").GetString()
+                                    )
+                            }
+                        })
+                        .ToList()
+                })
+                .ToList();
+
+            return controls;
         }
     }
 }
