@@ -15,14 +15,36 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using VeraNet.Objects;
+using VeraNet.Utils;
+using System.Runtime.InteropServices;
 
 namespace VeraNet;
 
 /// <summary>
-/// Class that handles the connection to Mios servers to get remote controllers ans sessions, in the new cloud service (UI7).
+/// Class that handles the connection to Mios servers to get remote controllers and sessions, in the new cloud service (UI7).
 /// </summary>
-public class VeraCloudConnection(string username, string password, HttpClient httpClient)
+[ComVisible(true), Guid("D14FBA36-3059-45F6-82E3-3408FD2186C3")]
+public class VeraCloudConnection
 {
+    public VeraCloudConnection() {}
+    
+    public VeraCloudConnection(string username, string password)
+    {
+        Username = username;
+        Password = password;
+    }
+    private HttpClient HttpClient { get; init; } = new();
+    
+    /// <summary>
+    /// The username of the Mios account.
+    /// </summary>
+    public string Username { get; set; }
+    
+    /// <summary>
+    /// The password of the Mios account.
+    /// </summary>
+    public string Password { private get; set; }
+    
     /// <summary>
     /// The Mios authentication server URL.
     /// </summary>
@@ -58,8 +80,6 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     /// It is used to connect to the Server Account, to get the identity information, and to get the account devices.
     /// </summary>
     private string SessionToken { get; set; }
-    
-    public VeraCloudConnection(string username, string password) : this(username, password, new HttpClient()) {}
 
     /// <summary>
     /// Authenticate the user in the Mios servers and gets the identity token, signature and server account,
@@ -72,10 +92,10 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         var sha1Password = GetSha1Password();
         
         // create the request
-        var url = $"https://{AuthUrl}/autha/auth/username/{username}?SHA1Password={sha1Password}&PK_Oem=1";
+        var url = $"https://{AuthUrl}/autha/auth/username/{Username}?SHA1Password={sha1Password}&PK_Oem=1";
  
         // send the request
-        var response = await httpClient.GetAsync(url);
+        var response = await HttpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
         
         // parse the response
@@ -97,7 +117,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     /// <returns>Hashed password.</returns>
     private string GetSha1Password()
     {
-        var bytes = Encoding.UTF8.GetBytes(username + password + PasswordSeed);
+        var bytes = Encoding.UTF8.GetBytes(Username + Password + PasswordSeed);
         var hash = SHA1.HashData(bytes);
         return BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
@@ -127,7 +147,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         request.Headers.Add("MMSAuthSig", IdentitySignature);
 
         // send the request
-        var response = await httpClient.SendAsync(request);
+        var response = await HttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         // parse the response
@@ -147,7 +167,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         request.Headers.Add("MMSSession", SessionToken);
         
         // send the request
-        var response = await httpClient.SendAsync(request);
+        var response = await HttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
         
         // parse the response
@@ -184,7 +204,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     /// </summary>
     /// <param name="device">The vera account device (hub).</param>
     /// <returns>Additional Info.</returns>
-    public async Task<VeraAccountDeviceInfo> GetAdditionalInfo(VeraAccountDevice device)
+    public async Task<VeraAccountDeviceInfo> GetAdditionalInfoAsync(VeraAccountDevice device)
     {
         // create the request
         var url = $"https://{device.ServerDevice}/device/device/device/{device.DeviceId}";
@@ -192,7 +212,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         request.Headers.Add("MMSSession", SessionToken);
         
         // send the request
-        var response = await httpClient.SendAsync(request);
+        var response = await HttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
         
         // parse the response
@@ -244,6 +264,14 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         return deviceInfo;
     }
     
+    /// <inheritdoc cref="GetAdditionalInfoAsync"/>
+    public VeraAccountDeviceInfo GetAdditionalInfo(VeraAccountDevice device)
+    {
+        var asyncTask = Task.Run(async () => await GetAdditionalInfoAsync(device));
+        // Wait for the task to complete and get the result
+        return asyncTask.Result;
+    }
+    
     /// <summary>
     /// Gets the devices (hubs) of the account.
     /// </summary>
@@ -273,14 +301,14 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     {
         await AuthenticateAsync();
         await GetSessionTokenAsync();
-        var deviceInfo = await GetAdditionalInfo(device);
+        var deviceInfo = await GetAdditionalInfoAsync(device);
         
         // if is a device with UI version less than 7, use the old cloud connection
         if (deviceInfo.UiVersion < 7)
-            return new VeraController(new VeraConnectionInfoCloudOld(username, password, int.Parse(device.DeviceId)), startListener);
+            return new VeraController(new VeraConnectionCloudOld(Username, Password, int.Parse(device.DeviceId)), startListener);
         
         var relaySession = await GetRelayServerSessionTokenAsync(deviceInfo);
-        return new VeraController(new VeraConnectionInfoCloudUi7(deviceInfo.ServerRelay, deviceInfo.DeviceId, relaySession), startListener);
+        return new VeraController(new VeraConnectionCloudUi7(deviceInfo.ServerRelay, deviceInfo.DeviceId, relaySession), startListener);
     }
     
     /// <inheritdoc cref="GetControllerAsync"/>
@@ -306,7 +334,7 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         request.Headers.Add("MMSAuthSig", IdentitySignature);
         
         // send the request
-        var response = await httpClient.SendAsync(request);
+        var response = await HttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
         
         // parse the response
@@ -323,10 +351,10 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
     /// The KitDevice always contains <c>PK_KitDevice</c>, <c>Name { text }</c>, <c>RequireMac</c>, <c>Protocol</c>, <c>NonSpecific</c>, <c>Invisible</c> and <c>Exclude</c>.
     /// Each specific KitDevice could contain other properties.
     /// </returns>
-    public async Task<JsonElement> GetKitDevicesAsync(VeraAccountDevice device)
+    public async Task<Dictionary<string, object>> GetKitDevicesAsync(VeraAccountDevice device)
     {
         // get the device info
-        var deviceInfo = await GetAdditionalInfo(device);
+        var deviceInfo = await GetAdditionalInfoAsync(device);
         
         // create the request
         var url =
@@ -336,17 +364,18 @@ public class VeraCloudConnection(string username, string password, HttpClient ht
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         
         // send the request
-        var response = await httpClient.SendAsync(request);
+        var response = await HttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
         
         // parse the response
         var content = await response.Content.ReadAsStringAsync();
         var json = JsonDocument.Parse(content);
-        return json.RootElement;
+        var root = json.RootElement;
+        return JsonHelper.DeserializeJson(root);
     }
     
     /// <inheritdoc cref="GetKitDevicesAsync"/>
-    public JsonElement GetKitDevices(VeraAccountDevice device)
+    public Dictionary<string, object> GetKitDevices(VeraAccountDevice device)
     {
         var asyncTask = Task.Run(async () => await GetKitDevicesAsync(device));
         // Wait for the task to complete and get the result

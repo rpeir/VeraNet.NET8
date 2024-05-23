@@ -54,7 +54,7 @@ namespace VeraNet.Objects
             if (this.VeraController != null)
             {
                 string urlCall = string.Format("{0}/data_request?id={1}&{2}",
-                    this.VeraController.ConnectionInfo.ToString(), action.ToString().ToLower(),
+                    this.VeraController.Connection.ToString(), action.ToString().ToLower(),
                     string.Join("&", parameters.Select(p => string.Format("{0}={1}", p.Key, p.Value))));
                 return this.VeraController.GetWebResponse(urlCall);
             }

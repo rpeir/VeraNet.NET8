@@ -5,6 +5,8 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
+
 namespace VeraNet.Objects
 {
     using System.Collections.Generic;
@@ -13,6 +15,7 @@ namespace VeraNet.Objects
     /// <summary>
     /// Represent a section (a set of rooms)
     /// </summary>
+    [ComVisible(true)]
     public class Section : VeraBaseObject
     {
         /// <summary>

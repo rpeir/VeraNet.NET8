@@ -5,6 +5,7 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace VeraNet.Objects
@@ -17,6 +18,7 @@ namespace VeraNet.Objects
     /// <summary>
     /// Represent a room
     /// </summary>
+    [ComVisible(true)]
     public class Room : VeraBaseObject
     {
         /// <summary>

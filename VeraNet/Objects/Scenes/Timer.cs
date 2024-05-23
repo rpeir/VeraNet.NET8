@@ -7,7 +7,7 @@ namespace VeraNet.Objects.Scenes;
 /// <seealso cref="Timers.IntervalTimer"/>
 /// <seealso cref="Timers.WeekTimer"/>
 /// <seealso cref="Timers.MonthTimer"/>
-/// <seealso cref="Timers.AbsoluteTimer"/>
+/// <seealso cref="Timers.dAbsoluteTimer"/>
 /// </summary>
 public abstract class Timer
 {

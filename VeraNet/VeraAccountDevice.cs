@@ -3,6 +3,7 @@
 // -----------------------------------------------------------------------
 
 using System;
+using System.Runtime.InteropServices;
 using VeraNet.Objects;
 
 namespace VeraNet;
@@ -13,6 +14,7 @@ namespace VeraNet;
 /// It should be used to get the <see cref="VeraController"/>
 /// It should be get from the <see cref="VeraCloudConnection"/> class.
 /// </summary>
+[ComVisible(true), Guid("E24B49C4-79A5-4AAC-A03C-BF9194E27BB3")]
 public class VeraAccountDevice
 {
     /// <summary>

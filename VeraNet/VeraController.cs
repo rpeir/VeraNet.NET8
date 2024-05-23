@@ -7,8 +7,10 @@
 
 // Vera UI API documentation : http://wiki.micasaverde.com/index.php/UI_Simple
 
+using System.Runtime.InteropServices;
 using VeraNet.Objects.Scenes;
 using VeraNet.Objects.Scenes.Actions;
+using VeraNet.Utils;
 using VeraTimer = VeraNet.Objects.Scenes.Timer;
 
 namespace VeraNet
@@ -28,13 +30,13 @@ namespace VeraNet
     /// Represent the Vera controller.
     /// </summary>
     /// <seealso cref="System.IDisposable" />
+    [ComVisible(true), Guid("C6500EDB-6996-4023-A11B-E767ACF14C9B")]
     public class VeraController : IDisposable
     {
         private const int REQUEST_INTERVAL_PAUSE_MS = 100;
         private const int DEFAULT_MINIMAL_DELAY_MS = 500;
         private const int DEFAULT_TIMEOUT_SEC = 10;
-
-        private HttpClient _httpClient;
+        
         private CancellationTokenSource _cancellationTokenSource;
 
         private Thread _thrListener = null;
@@ -84,7 +86,7 @@ namespace VeraNet
         /// <value>
         /// The connection information.
         /// </value>
-        public VeraConnectionInfo ConnectionInfo { get; set; }
+        public VeraConnection Connection { get; set; }
 
         /// <summary>
         /// Gets or sets the request minimal delay.
@@ -226,9 +228,9 @@ namespace VeraNet
         /// <summary>
         /// Initializes a new instance of the <see cref="VeraController"/> class.
         /// </summary>
-        /// <param name="connectionInfo">The connection information.</param>
+        /// <param name="connection">The connection information.</param>
         /// <param name="startListener">if set to <c>true</c> to listen the changes on Vera device.</param>
-        public VeraController(VeraConnectionInfo connectionInfo, bool startListener = false)
+        public VeraController(VeraConnection connection, bool startListener = false)
         {
             this.Sections = new ObservableCollection<Section>();
             this.Rooms = new ObservableCollection<Room>();
@@ -236,8 +238,7 @@ namespace VeraNet
             this.Scenes = new ObservableCollection<Scene>();
             this.Devices = new ObservableCollection<Device>();
             this.IsListening = false;
-            this.ConnectionInfo = connectionInfo;
-            this._httpClient = connectionInfo.HttpClient;
+            this.Connection = connection;
             this.RequestMinimalDelay = TimeSpan.FromMilliseconds(DEFAULT_MINIMAL_DELAY_MS);
             this.RequestTimeout = TimeSpan.FromSeconds(DEFAULT_TIMEOUT_SEC);
             this.LoadDeviceTypes();
@@ -366,7 +367,7 @@ namespace VeraNet
             try
             {
                 // Send request and get response
-                HttpResponseMessage response = await _httpClient.GetAsync(uri);
+                HttpResponseMessage response = await Connection.GetWebResponse(uri);
                 response.EnsureSuccessStatusCode();
 
                 // DateSent
@@ -631,83 +632,15 @@ namespace VeraNet
         /// <param name="jsonString">The JSON response stringified</param>
         /// <returns>
         /// A dictionary with the JSON structure.
-        /// The possible object values are the referenced in the <see cref="GetValue"/> method
         /// </returns>
         /// <author>Rodrigo Peireso</author>
         private static Dictionary<string, object> DeserializeJson(string jsonString)
         {
-            using (JsonDocument document = JsonDocument.Parse(jsonString))
-            {
-                // Access the root element
-                JsonElement root = document.RootElement;
+            using var document = JsonDocument.Parse(jsonString);
+            // Access the root element
+            var root = document.RootElement;
 
-                // Create a dictionary to hold the deserialized JSON
-                Dictionary<string, object> dictionary = new Dictionary<string, object>();
-
-                // Iterate over each property of the JSON object
-                foreach (JsonProperty property in root.EnumerateObject())
-                {
-                    // Convert the JSON element value to its corresponding native type
-                    object value = GetValue(property.Value);
-
-                    // Add the property name and its native type value to the dictionary
-                    dictionary.Add(property.Name, value);
-                }
-
-                return dictionary;
-            }
-        }
-
-        /// <summary>
-        /// Helper method to convert JSON elements to native types.
-        /// It is used with the DeserializeJson method to recursively convert JSON elements to native types.
-        /// </summary>
-        /// <param name="element">The json element to be converted.</param>
-        /// <returns>Can return native types such as number (int, double, long, decimal), bool, string or array objects.</returns>
-        /// <author>Rodrigo Peireso</author>
-        private static object GetValue(JsonElement element)
-        {
-            switch (element.ValueKind)
-            {
-                case JsonValueKind.Number:
-                    if (element.TryGetInt32(out int intValue))
-                    {
-                        return intValue;
-                    }
-                    else if (element.TryGetDouble(out double doubleValue))
-                    {
-                        return doubleValue;
-                    }
-                    else if (element.TryGetInt64(out long longValue))
-                    {
-                        return longValue;
-                    }
-                    else if (element.TryGetDecimal(out decimal decimalValue))
-                    {
-                        return decimalValue;
-                    }
-
-                    break;
-                case JsonValueKind.True:
-                    return true;
-                case JsonValueKind.False:
-                    return false;
-                case JsonValueKind.String:
-                    return element.GetString();
-                case JsonValueKind.Array:
-                    List<object> array = new List<object>();
-                    foreach (JsonElement item in element.EnumerateArray())
-                    {
-                        array.Add(GetValue(item));
-                    }
-
-                    return array.ToArray();
-                case JsonValueKind.Object:
-                    return DeserializeJson(element.GetRawText());
-            }
-
-            // Fallback to string representation if value kind is not recognized
-            return element.ToString();
+            return JsonHelper.DeserializeJson(root);
         }
 
         ///<inheritdoc cref="CreateRoomAsync"/>

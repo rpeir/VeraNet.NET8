@@ -5,12 +5,15 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
+
 namespace VeraNet.Objects
 {
 
     /// <summary>
     /// Represent a category of devices
     /// </summary>
+    [ComVisible(true)]
     public class Category : VeraBaseObject
     {
     }

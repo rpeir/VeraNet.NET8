@@ -12,12 +12,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleAppTest", "ConsoleAppTest\ConsoleAppTest.csproj", "{12920542-08F6-42DC-B88F-DBB3514E1BBA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleAppTest", "ConsoleAppTest\ConsoleAppTest.csproj", "{12920542-08F6-42DC-B88F-DBB3514E1BBA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{BB3A376F-5A75-4483-8C36-8772BD08E496} = {BB3A376F-5A75-4483-8C36-8772BD08E496}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VeraNetTests", "VeraNetTests\VeraNetTests.csproj", "{CC56F444-1CBF-4C52-ACFF-93AB9EDEA1FF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VeraNetTests", "VeraNetTests\VeraNetTests.csproj", "{CC56F444-1CBF-4C52-ACFF-93AB9EDEA1FF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

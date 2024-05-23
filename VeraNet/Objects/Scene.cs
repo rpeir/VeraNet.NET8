@@ -5,6 +5,8 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
+
 namespace VeraNet.Objects
 {
     using System.Collections.Generic;
@@ -12,6 +14,7 @@ namespace VeraNet.Objects
     /// <summary>
     /// Represent a Vera scene.
     /// </summary>
+    [ComVisible(true)]
     public class Scene : VeraInteractiveObject
     {
         /// <summary>

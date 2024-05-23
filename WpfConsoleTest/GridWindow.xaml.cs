@@ -25,7 +25,7 @@ namespace WpfConsoleTest
         public GridWindow()
         {
             InitializeComponent();
-            this.controller = new VeraController(new VeraConnectionInfoLocal("192.168.178.211"));
+            this.controller = new VeraController(new VeraConnectionLocal("192.168.178.211"));
             this.controller.DataReceived += new EventHandler<VeraDataReceivedEventArgs>(controller_DataReceived);
             this.controller.DataSent += new EventHandler<VeraDataSentEventArgs>(controller_DataSent);
         }

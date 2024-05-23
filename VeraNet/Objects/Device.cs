@@ -5,6 +5,7 @@
 // <author>Sebastien Warin</author>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace VeraNet.Objects
@@ -19,6 +20,7 @@ namespace VeraNet.Objects
     /// <summary>
     /// Represent a Vera's device.
     /// </summary>
+    [ComVisible(true)]
     public class Device : VeraInteractiveObject
     {
         private static Regex jobRx = new Regex(@"<JobID>(\d*)<\/JobID>", RegexOptions.Compiled);

@@ -6,12 +6,16 @@
 // -----------------------------------------------------------------------
 
 // Documentation: https://wiki.mios.com/index.php/Luup_Device_Categories
+
+using System.Runtime.InteropServices;
+
 namespace VeraNet.Objects
 {
 
     /// <summary>
     /// Represent the Vera device's category
     /// </summary>
+    [ComVisible((true))]
     public enum DeviceCategory
     {
         Interface = 1,

@@ -11,7 +11,7 @@ namespace VeraNet;
 /// <summary>
 /// Class that holds the connection information for a remote Vera controller, using the old cloud service (UI6 or older).
 /// </summary>
-public class VeraConnectionInfoCloudOld : VeraConnectionInfo
+public class VeraConnectionCloudOld : VeraConnection
 {
     /// <summary>
     /// Gets or sets the remote user.
@@ -34,20 +34,23 @@ public class VeraConnectionInfoCloudOld : VeraConnectionInfo
     /// The remote serial.
     /// </value>
     public int RemoteSerial { get; init; }
-
+    
     /// <summary>
-    /// Initializes a new instance of the <see cref="VeraConnectionInfoCloudOld"/> class for remote access.
+    /// Initializes a new instance of the <see cref="VeraConnectionCloudOld"/> class for remote access.
     /// </summary>
     /// <param name="user">The user.</param>
     /// <param name="password">The password.</param>
     /// <param name="sn">The sn.</param>
-    public VeraConnectionInfoCloudOld(string user, string password, int sn)
+    public VeraConnectionCloudOld(string user, string password, int sn) 
+        : this(new HttpClient(), user, password, sn) {}
+    
+    public VeraConnectionCloudOld(HttpClient httpClient, string user, string password, int sn)
     {
         this.IsLocalConnection = false;
         this.RemotePassword = password;
         this.RemoteSerial = sn;
         this.RemoteUser = user;
-        this.HttpClient = new HttpClient();
+        this.HttpClient = httpClient;
         this.HttpClient.BaseAddress = new Uri(this.GetUrl());
     }
     

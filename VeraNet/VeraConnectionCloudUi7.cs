@@ -10,7 +10,7 @@ namespace VeraNet;
 /// <summary>
 /// Class that holds the connection information for a remote Vera controller, using the new cloud service (UI7).
 /// </summary>
-public class VeraConnectionInfoCloudUi7 : VeraConnectionInfo
+public class VeraConnectionCloudUi7 : VeraConnection
 {
     /// <summary>
     /// The relay server used to connect to the Vera controller via the cloud.
@@ -27,15 +27,18 @@ public class VeraConnectionInfoCloudUi7 : VeraConnectionInfo
     /// </summary>
     public string RelaySession { get; init; }
     
-    public VeraConnectionInfoCloudUi7(string serverRelay, string deviceId, string relaySession)
+    public VeraConnectionCloudUi7(HttpClient httpClient, string serverRelay, string deviceId, string relaySession)
     {
         this.IsLocalConnection = false;
         this.ServerRelay = serverRelay;
         this.DeviceId = deviceId;
         this.RelaySession = relaySession;
-        this.HttpClient = new HttpClient();
+        this.HttpClient = httpClient;
         this.HttpClient.BaseAddress = new Uri(this.GetUrl());
     }
+    
+    public VeraConnectionCloudUi7(string serverRelay, string deviceId, string relaySession)
+        : this( new HttpClient(), serverRelay, deviceId, relaySession) {}
     
     protected sealed override string GetUrl()
     {

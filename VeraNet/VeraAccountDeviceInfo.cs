@@ -3,9 +3,11 @@
 // -----------------------------------------------------------------------
 
 using System;
+using System.Runtime.InteropServices;
 
 namespace VeraNet;
 
+[ComVisible(true), Guid("414F090A-0C29-436D-BEB8-58FD114C71B1")]
 public class VeraAccountDeviceInfo
 {
     /// <summary>
